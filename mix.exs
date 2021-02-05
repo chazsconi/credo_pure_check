@@ -21,7 +21,7 @@ defmodule CredoPureCheck.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:credo, "~> 1.5", only: [:dev, :test]}
+      {:credo, "~> 1.5"}
     ]
   end
 end

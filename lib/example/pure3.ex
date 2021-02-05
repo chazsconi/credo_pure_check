@@ -2,13 +2,13 @@ defmodule Example.Pure3 do
   @moduledoc """
   foo
   """
-  use Credo.Check.Custom.PureModule
 
+  # use Example.PureModuleMarker
   defmodule SubModule1 do
-    use Credo.Check.Custom.PureModule
+    use Example.PureModuleMarker
 
-    def f1 do
-      DateTime.utc_now()
+    def(f1) do
+      123
     end
   end
 

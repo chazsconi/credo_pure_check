@@ -65,7 +65,7 @@
       #     {Credo.Check.Design.DuplicatedCode, false}
       #
       checks: [
-        {Credo.Check.Custom.PureModule}
+        {Credo.Check.Custom.PureModule, pure_mod_marker: Example.PureModuleMarker}
       ]
     }
   ]
