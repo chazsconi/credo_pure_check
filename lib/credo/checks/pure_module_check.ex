@@ -36,6 +36,9 @@ defmodule Credo.Check.Custom.PureModule do
       """,
       extra_pure_mods: """
         List of pure modules in dependencies you are using
+      """,
+      stdlib_partial_pure_mods_impure_functions: """
+        Map of stdlib module names to the non-pure functions in the module
       """
     ]
   ]
@@ -46,9 +49,11 @@ defmodule Credo.Check.Custom.PureModule do
     # Common libs
     pure_mod_marker: PureModule,
     stdlib_pure_mods:
-      ~w[Enum Map MapSet String List Logger Keyword Float Regex Integer] ++
+      ~w[Enum Map MapSet String List Logger Keyword Float Regex Integer Base] ++
+        ~w[Base Atom String.Chars Tuple] ++
         ~w[ArgumentError CompileError] ++
         ~w[Module Macro Application],
+    stdlib_partial_pure_mods_impure_functions: %{"DateTime" => [:utc_now, :now, :now!]},
     extra_pure_mods: []
   ]
 
@@ -56,7 +61,7 @@ defmodule Credo.Check.Custom.PureModule do
   use Credo.Check, base_priority: :high, category: :custom
 
   defmodule ModuleState do
-    defstruct [:issue_meta, :deps, :force?, marked_pure?: false]
+    defstruct [:issue_meta, :deps, :force?, impure_function_calls: [], marked_pure?: false]
   end
 
   defmodule Context do
@@ -65,6 +70,8 @@ defmodule Credo.Check.Custom.PureModule do
       :pure_marker_list,
       # Marker in form of string "Pure.Module.Marker"
       :pure_marker_string,
+      # Impure functions in partial pure mods
+      :partial_pure_mod_impure_functions,
       # The ast for the file being parsed
       :source_ast
     ]
@@ -72,18 +79,25 @@ defmodule Credo.Check.Custom.PureModule do
 
   @impl true
   def run_on_all_source_files(exec, source_files, params) do
+    stdlib_partial_pure_mods_impure_functions =
+      Params.get(params, :stdlib_partial_pure_mods_impure_functions, __MODULE__)
+
     lib_pure_mods =
       Params.get(params, :stdlib_pure_mods, __MODULE__) ++
-        Params.get(params, :extra_pure_mods, __MODULE__)
+        Params.get(params, :extra_pure_mods, __MODULE__) ++
+        Map.keys(stdlib_partial_pure_mods_impure_functions)
 
     pure_mod_marker = Params.get(params, :pure_mod_marker, __MODULE__)
 
     context = %Context{
       pure_marker_list: mod_to_atoms(pure_mod_marker),
-      pure_marker_string: mod_to_string(pure_mod_marker)
+      pure_marker_string: mod_to_string(pure_mod_marker),
+      partial_pure_mod_impure_functions: stdlib_partial_pure_mods_impure_functions
     }
 
     source_files
+    # Do not include exs files e.g. test
+    |> Enum.filter(fn %Credo.SourceFile{filename: filename} -> Path.extname(filename) == ".ex" end)
     |> Enum.reduce(%{}, fn %Credo.SourceFile{} = source_file, acc ->
       source_ast = Credo.SourceFile.ast(source_file)
 
@@ -185,6 +199,62 @@ defmodule Credo.Check.Custom.PureModule do
     {ast, acc}
   end
 
+  # Look for function calls with aliases to partial pure modules
+  defp traverse(
+         {:., [line, _column], [{:__aliases__, _alias_meta, [alias_name]}, function_name]} = ast,
+         %Context{
+           source_ast: source_ast,
+           partial_pure_mod_impure_functions: partial_pure_mod_impure_functions
+         },
+         acc,
+         _issue_meta
+       ) do
+    case Map.get(partial_pure_mod_impure_functions, to_string(alias_name)) do
+      nil ->
+        # Call to non-partial_pure module - ignore
+        {ast, acc}
+
+      impure_functions ->
+        if function_name in impure_functions do
+          # Found an impure function in a partial pure mod
+          case Credo.Code.Scope.name(source_ast, [line]) do
+            # The scope should be in a def or defp function definition
+            # not sure what other cases it could be - perhaps in macros
+            {keyword, mod_and_fun} when keyword in [:def, :defp] ->
+              # This is "Foo.Baa.my_fun" so need to drop the function part
+              mod_full_name =
+                mod_and_fun
+                |> String.split(".")
+                |> Enum.drop(-1)
+                |> Enum.join(".")
+
+              # Add the impure function call to the list of impure function calls
+              # already held for the module being parsed
+              # The module should already exist in the acc as it will have being
+              # added on the defmodule
+              updated_acc =
+                Map.update!(acc, mod_full_name, fn %ModuleState{} = state ->
+                  %ModuleState{
+                    state
+                    | impure_function_calls: [
+                        {alias_name, function_name} | state.impure_function_calls
+                      ]
+                  }
+                end)
+
+              {ast, updated_acc}
+
+            _scope ->
+              # Found function call in unknown scope - ignoring
+              {ast, acc}
+          end
+        else
+          # Call to pure function in partial pure mod - ignoring
+          {ast, acc}
+        end
+    end
+  end
+
   # Everything else we just skip
   defp traverse(
          ast,
@@ -210,14 +280,28 @@ defmodule Credo.Check.Custom.PureModule do
 
     pure_module_map
     |> Enum.reject(fn {_name, %ModuleState{force?: f?}} -> f? end)
-    |> Enum.reduce([], fn {name, %ModuleState{issue_meta: issue_meta, deps: deps}}, acc ->
-      deps
-      |> Enum.reject(fn dep ->
-        pure_mod?(dep, Map.keys(pure_module_map), lib_mods)
-      end)
-      |> case do
+    |> Enum.reduce([], fn {name,
+                           %ModuleState{
+                             issue_meta: issue_meta,
+                             impure_function_calls: impure_function_calls,
+                             deps: deps
+                           }},
+                          acc ->
+      impure_deps =
+        deps
+        |> Enum.reject(fn dep ->
+          pure_mod?(dep, Map.keys(pure_module_map), lib_mods)
+        end)
+
+      acc =
+        case impure_function_calls do
+          [] -> acc
+          _ -> [impure_function_calls_issue(name, impure_function_calls, issue_meta) | acc]
+        end
+
+      case impure_deps do
         [] -> acc
-        impure_deps -> [issue(name, impure_deps, issue_meta) | acc]
+        _ -> [impure_deps_issue(name, impure_deps, issue_meta) | acc]
       end
     end)
   end
@@ -267,11 +351,23 @@ defmodule Credo.Check.Custom.PureModule do
     end
   end
 
-  defp issue(name, impure_deps, issue_meta) do
+  defp impure_deps_issue(name, impure_deps, issue_meta) do
     format_issue(
       issue_meta,
       message:
         "Module #{name} marked as pure but has impure dependencies: #{inspect(impure_deps)}"
+      # line_no: meta[:line],
+      # column_no: meta[:column]
+    )
+  end
+
+  defp impure_function_calls_issue(name, impure_function_calls, issue_meta) do
+    format_issue(
+      issue_meta,
+      message:
+        "Module #{name} marked as pure but has impure function calls: #{
+          inspect(impure_function_calls)
+        }"
       # line_no: meta[:line],
       # column_no: meta[:column]
     )

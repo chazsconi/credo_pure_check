@@ -53,9 +53,31 @@ Most Elixir standard library pure functions are also included but this can be ch
 parameter.  This list currently includes `Logger` which is not really pure, as it has side effects, but is included
 for pragmatism.  `DateTime` is not included as `DateTime.utc_now()` is not a pure function.  This is a TODO (see below).
 
+## Why is purity important?
+
+There are various reasons why it is good to separate pure and non-pure parts of your code including:
+
+### Testing
+
+It is much easier to test pure functions as no mocking of collaborators is required and the results
+of the test will always be deterministic
+
+### Deterministic performance
+
+Although separating out the pure and impure parts of the code will not alone lead to performance improvements if you have know a function is pure you know that it will not be making calls to GenServers or external resources which may be slow to respond or fail.
+
+Additionally, gathering the input data from external dependencies or other parts of the system before calling the pure function with the business logic makes it easier to identify when multiple, potentially expensive, calls are made requesting the same data.
+
+### Avoiding deadlocks
+
+Being able to reason about which parts of the code are pure, makes it easier to be sure that it cannot be a source of race conditions or deadlocks (e.g. two GenServers waiting on a response from each other).
+
+
 # TODO
 
-* Allow functions in modules as pure/impure e.g. `DateTime.utc_now()`
+* Allow functions in modules as pure/impure e.g. `DateTime.utc_now()` - DONE
 * Handle aliases added via a `use Foo` - perhaps by using postwalk
 * Handle aliases with an `:as`
 * Check erlang modules also work e.g. crypto library
+* Handle aliases added in a parent module and referenced in a child module
+* Handle imports such as `import DateTime, only [utc_now: 0]` which allow cheating the check
