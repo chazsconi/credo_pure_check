@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.2.1
+
+* Bug fixes
+  * Change category of check from `:custom` to `:warning` so that exit status > 0 if the check fails
+
 ## v0.2.0
 
 * Bug fixes
