@@ -58,7 +58,7 @@ defmodule Credo.Check.Custom.PureModule do
   ]
 
   # you can configure the basics of your check via the `use Credo.Check` call
-  use Credo.Check, base_priority: :high, category: :custom
+  use Credo.Check, base_priority: :high, category: :warning
 
   defmodule ModuleState do
     defstruct [:issue_meta, :deps, :force?, impure_function_calls: [], marked_pure?: false]
