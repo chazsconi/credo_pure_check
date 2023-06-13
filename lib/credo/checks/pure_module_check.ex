@@ -49,11 +49,15 @@ defmodule Credo.Check.Custom.PureModule do
     # Common libs
     pure_mod_marker: PureModule,
     stdlib_pure_mods:
-      ~w[Enum Map MapSet String List Logger Keyword Float Regex Integer Base] ++
-        ~w[Base Atom String.Chars Tuple] ++
-        ~w[ArgumentError CompileError] ++
+      ~w[Enum Enumerable Map MapSet String List Logger Keyword Float Regex Integer Base URI] ++
+        ~w[Base Atom String.Chars Tuple Access] ++
+        ~w[Inspect Inspect.Any Inspect.Algebra] ++
+        ~w[ArgumentError KeyError CompileError] ++
         ~w[Module Macro Application],
-    stdlib_partial_pure_mods_impure_functions: %{"DateTime" => [:utc_now, :now, :now!]},
+    stdlib_partial_pure_mods_impure_functions: %{
+      "DateTime" => [:utc_now, :now, :now!],
+      "Time" => [:utc_now]
+    },
     extra_pure_mods: []
   ]
 
@@ -365,9 +369,7 @@ defmodule Credo.Check.Custom.PureModule do
     format_issue(
       issue_meta,
       message:
-        "Module #{name} marked as pure but has impure function calls: #{
-          inspect(impure_function_calls)
-        }"
+        "Module #{name} marked as pure but has impure function calls: #{inspect(impure_function_calls)}"
       # line_no: meta[:line],
       # column_no: meta[:column]
     )
