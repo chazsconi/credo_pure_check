@@ -142,7 +142,11 @@ defmodule Credo.Check.Custom.PureModule do
        ) do
     # Need to get the full module name by resolving it within the scope of the
     # ast in case it is a submodule
-    {:defmodule, mod_full_name} = Credo.Code.Scope.name(source_ast, [line])
+    mod_full_name =
+      case Credo.Code.Scope.name(source_ast, [line]) do
+        {:defmodule, mod_full_name} -> mod_full_name
+        {:defmacro, mod_full_name} -> mod_full_name
+      end
 
     mod_deps = get_dependencies(ast)
 
@@ -171,7 +175,11 @@ defmodule Credo.Check.Custom.PureModule do
         [opts] -> Keyword.get(opts, :force, false)
       end
 
-    {:defmodule, mod_full_name} = Credo.Code.Scope.name(source_ast, [line])
+    mod_full_name =
+      case Credo.Code.Scope.name(source_ast, [line]) do
+        {:defmodule, mod_full_name} -> mod_full_name
+        {:defmacro, mod_full_name} -> mod_full_name
+      end
 
     acc =
       Map.update!(acc, mod_full_name, fn ms ->
