@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* Bug fixes
+  * Allow checking modules that are defined in a `quote` block inside a `defmacro`
+
 ## v0.2.1
 
 * Bug fixes
