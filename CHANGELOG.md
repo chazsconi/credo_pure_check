@@ -1,9 +1,12 @@
 # Changelog
 
-## Unreleased
+## v0.2.2
 
 * Bug fixes
   * Allow checking modules that are defined in a `quote` block inside a `defmacro`
+
+* Other
+  * Added package metadata
 
 ## v0.2.1
 
