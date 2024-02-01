@@ -322,7 +322,7 @@ defmodule Credo.Check.Custom.PureModule do
     Enum.member?(project_mods, mod) or
       Enum.any?(lib_mods, fn lib_mod ->
         if String.ends_with?(lib_mod, ".*") do
-          String.starts_with?(mod, String.slice(lib_mod, 0..-2))
+          String.starts_with?(mod, String.slice(lib_mod, 0..-2//1))
         else
           mod == lib_mod
         end
