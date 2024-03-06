@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.4
+
+* Other
+ * Fix deprecated `Credo.Execution.set_issues/2`
+ * Set min version of credo to 1.7
+
 ## v0.2.3
 
 * Other
