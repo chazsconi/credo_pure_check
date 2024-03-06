@@ -119,7 +119,7 @@ defmodule Credo.Check.Custom.PureModule do
       )
     end)
     |> create_issues(lib_pure_mods)
-    |> (fn issues -> Credo.Execution.set_issues(exec, issues) end).()
+    |> then(&Credo.Execution.put_issues(exec, &1))
 
     :ok
   end
