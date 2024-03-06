@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.3
+
+* Other
+ * Fix deprecated `String.slice/2` with negative range
+
 ## v0.2.2
 
 * Bug fixes

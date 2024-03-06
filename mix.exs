@@ -4,7 +4,7 @@ defmodule CredoPureCheck.MixProject do
   def project do
     [
       app: :credo_pure_check,
-      version: "0.2.2",
+      version: "0.2.3",
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
